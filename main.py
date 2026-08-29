@@ -56,6 +56,7 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔥 *Bot by Dr. Dev*\n\n"
         "I am running in the background, creating accounts at high speed.\n\n"
         "📌 *Commands:*\n"
+        "`/count` - View real-time creation stats.\n"
         "`/get` - Fetch the latest accounts.csv file instantly.\n\n"
         "🔔 *Notifications:*\n"
         "You will automatically receive the CSV file here every time *100 accounts* are successfully created."
@@ -70,13 +71,25 @@ async def get_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("⚠️ No accounts have been generated yet.")
 
+async def count_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles the /count command to show current stats"""
+    msg = (
+        "📊 *Current Status Report*\n\n"
+        f"👷 *Active Workers:* {CONCURRENCY_LIMIT}\n"
+        f"✅ *Total Created:* {total_created}\n"
+        f"❌ *Total Failed:* {total_failed}\n"
+        f"📦 *Progress to next batch:* {total_created % 100}/100\n\n"
+        f"🔥 *Bot by Dr. Dev*"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
 async def broadcast_batch(bot_app: Application):
     """Sends the 100-account milestone message to all users"""
     global batch_count
     msg = (
-        f"🎉 *Batch {batch_count} Completed!*\n\n"
-        f"✅ Total Created: {total_created}\n"
-        f"❌ Total Failed: {total_failed}\n\n"
+        f"🎉 *100-Account Batch Completed!*\n\n"
+        f"✅ Total Created So Far: {total_created}\n"
+        f"❌ Total Failed So Far: {total_failed}\n\n"
         f"🔥 *Bot by Dr. Dev*"
     )
     for chat_id in list(subscribed_users):
@@ -89,7 +102,7 @@ async def broadcast_batch(bot_app: Application):
             print(f"Failed to send to Telegram: {e}")
 
 async def save_to_csv():
-    """Saves buffer to CSV"""
+    """Saves buffer to CSV immediately"""
     global account_buffer
     if not account_buffer: return
     with open(CSV_PATH, 'a', newline='', encoding='utf-8') as f:
@@ -164,9 +177,8 @@ async def create_account_worker(worker_id, browser, bot_app):
                 account_buffer.append([phone, password, captured_payload])
                 print(f"[Worker-{worker_id} ✅] Phone: {phone} | Total OK: {total_created}")
                 
-                # Save to CSV every 10 accounts
-                if len(account_buffer) >= 10:
-                    await save_to_csv()
+                # Save to CSV IMMEDIATELY on every success
+                await save_to_csv()
 
                 # Trigger Telegram Broadcast every 100 accounts
                 current_batch = total_created // 100
@@ -206,6 +218,8 @@ async def main():
     tg_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     tg_app.add_handler(CommandHandler("start", start_cmd))
     tg_app.add_handler(CommandHandler("get", get_cmd))
+    tg_app.add_handler(CommandHandler("count", count_cmd)) # New count command
+    
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.updater.start_polling()
