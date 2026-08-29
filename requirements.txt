@@ -1,0 +1,5 @@
+playwright
+nest-asyncio
+pyvirtualdisplay
+python-telegram-bot
+aiohttp
